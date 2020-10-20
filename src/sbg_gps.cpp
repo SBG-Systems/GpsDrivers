@@ -11,251 +11,14 @@ namespace px4
 namespace sbg
 {
 
-typedef SbgErrorCode (*ReadCallback) (void *p_buffer, size_t read_bytes, void *p_user_arg);
-
-class Serial
-{
-	public:
-	Serial(int serial_id, ReadCallback read_callback, void *p_arg);
-
-	~Serial(void);
-
-	SbgErrorCode init(unsigned baudrate);
-
-	SbgErrorCode flush(void);
-
-	int									 _id;
-	ReadCallback						 read;
-	void								*p_user_arg;
-};
-
-Serial::Serial(int serial_id, ReadCallback read_callback, void *p_arg)
-:	_id(serial_id),
-	read(read_callback),
-	p_user_arg(p_arg)
-{
-}
-
-SbgErrorCode Serial::init(uint32_t baudrate)
-{
-	SbgErrorCode						 error_code;
-	struct termios						 config;
-
-	if (tcgetattr((_id), &config) != -1)
-	{
-		config.c_cflag |=  (CLOCAL | CREAD);
-		config.c_cflag &= ~(PARENB|CSTOPB|CSIZE);
-		config.c_cflag |= CS8;
-		config.c_cflag &= ~CRTSCTS;
-
-		config.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-
-		config.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-		config.c_oflag = 0;
-
-		config.c_cc[VMIN] = 0;
-		config.c_cc[VTIME] = 0;
-
-		if ((cfsetispeed(&config, baudrate) >= 0) && (cfsetospeed(&config, baudrate) >= 0))
-		{
-			if (tcsetattr(_id, TCSANOW, &config) == 0)
-			{
-				error_code = SBG_NO_ERROR;
-			}
-			else
-			{
-				error_code = SBG_ERROR;
-				SBG_LOG_ERROR(error_code, "unable to set attributes");
-			}
-		}
-		else
-		{
-			error_code = SBG_ERROR;
-			SBG_LOG_ERROR(error_code, "unable to set baudrate");
-		}
-	}
-	else
-	{
-		error_code = SBG_ERROR;
-		SBG_LOG_ERROR(error_code, "unale to get attributes");
-	}
-
-	return error_code;
-}
-
-SbgErrorCode Serial::flush(void)
-{
-	SbgErrorCode						 error_code;
-
-	if (tcflush(_id, TCIOFLUSH) == 0)
-	{
-	  error_code = SBG_NO_ERROR;
-	}
-	else
-	{
-		error_code = SBG_ERROR;
-		SBG_LOG_ERROR(error_code, "unable to flush");
-	}
-
-	return error_code;
-}
-
-class Interface
-{
-	public:
-	SbgErrorCode open(SbgInterface *p_interface, int serial_id, unsigned baudrate, ReadCallback read_callback, void *p_user_arg);
-
-	private:
-	uint32_t getBaudRateConst(unsigned baudRate);
-
-	static SbgErrorCode serialRead(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read);
-};
-
-uint32_t Interface::getBaudRateConst(unsigned baudRate)
-{
-	uint32_t							 baudrate_const;
-
-	switch (baudRate)
-	{
-		case 9600:
-			baudrate_const = B9600;
-			break;
-		case 19200:
-			baudrate_const = B19200;
-			break;
-		#ifdef B38400
-		case 38400:
-			baudrate_const = B38400;
-			break;
-		#endif
-		#ifdef B57600
-		case 57600:
-			baudrate_const = B57600;
-			break;
-		#endif
-		#ifdef B115200
-		case 115200:
-			baudrate_const = B115200;
-			break;
-		#endif
-		#ifdef B230400
-		case 230400:
-			baudrate_const = B230400;
-			break;
-		#endif
-		#ifdef B460800
-		case 460800:
-			baudrate_const = B460800;
-			break;
-		#endif
-		#ifdef B921600
-		case 921600:
-			baudrate_const = B921600;
-			break;
-		#endif // B921600
-		default:
-			baudrate_const = baudRate;
-	}
-
-	return baudrate_const;
-}
-
-SbgErrorCode Interface::serialRead(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read)
-{
-	SbgErrorCode						 error_code;
-	Serial								*p_serial;
-	pollfd								 fds[1];
-	int									 result;
-
-	assert(p_interface);
-	assert(p_read_bytes);
-	assert(p_interface->type == SBG_IF_TYPE_SERIAL);
-
-	p_serial = (Serial *)p_interface->handle;
-
-	fds[0].fd = p_serial->_id;
-	fds[0].events = POLLIN;
-
-	result = poll(fds, sizeof(fds) / sizeof(fds[0]), 0);
-
-	if (result > 0)
-	{
-		ssize_t							 bytes_read;
-
-		bytes_read = ::read(p_serial->_id, p_buffer, bytes_to_read);
-
-		if (bytes_read >= 0)
-		{
-			*p_read_bytes = (size_t)bytes_read;
-
-			error_code = p_serial->read(p_buffer, *p_read_bytes, p_serial->p_user_arg);
-		}
-		else
-		{
-			*p_read_bytes = 0;
-
-			error_code = SBG_READ_ERROR;
-		}
-	}
-	else
-	{
-		*p_read_bytes = 0;
-
-		error_code = SBG_NOT_READY;
-	}
-
-	return error_code;
-}
-
-SbgErrorCode Interface::open(SbgInterface *p_interface, int serial_id, unsigned baudrate, ReadCallback read_callback, void *p_user_arg)
-{
-	SbgErrorCode						 error_code;
-	Serial								*p_serial;
-
-	p_serial = new Serial(serial_id, read_callback, p_user_arg);
-
-	if (p_serial)
-	{
-		uint32_t						 baudrate_const;
-
-		baudrate_const = getBaudRateConst(baudrate);
-
-		error_code = p_serial->init(baudrate_const);
-
-		if (error_code == SBG_NO_ERROR)
-		{
-			error_code = p_serial->flush();
-
-			if (error_code == SBG_NO_ERROR)
-			{
-				p_interface->handle			= p_serial;
-				p_interface->type			= SBG_IF_TYPE_SERIAL;
-				snprintf(p_interface->name, sizeof(p_interface->name), "uart%u", serial_id);
-				p_interface->pReadFunc		= serialRead;
-			}
-		}
-	}
-	else
-	{
-		error_code = SBG_MALLOC_FAILED;
-		SBG_LOG_ERROR(error_code, "malloc fails");
-	}
-
-	return error_code;
-}
-
-GPSDriver::GPSDriver(GPSCallbackPtr callback, void *callback_user, struct sensor_gps_s *gps_position, float heading_offset, int serial_id)
+GPSDriver::GPSDriver(GPSCallbackPtr callback, void *callback_user, struct sensor_gps_s *gps_position, float heading_offset)
 :	GPSBaseStationSupport(callback, callback_user),
 	p_gps_position(gps_position),
-	_heading_offset(heading_offset),
-	_serial_id(serial_id)
+	_heading_offset(heading_offset)
 {
 	_pos_received = false;
 	_vel_received = false;
 	_utc_timestamp = 0;
-	_bin.bytes_read = 0;
-
-	_sbg_bin_pub.advertise();
 }
 
 GPSDriver::~GPSDriver(void)
@@ -277,28 +40,24 @@ int GPSDriver::configure(unsigned &baudrate, OutputMode output_mode)
 	if (output_mode == OutputMode::GPS)
 	{
 		SbgErrorCode					 error_code;
-		sbg::Interface					 interface;
 
-		error_code = interface.open(&_sbg_interface, _serial_id, baudrate, onReadCallback, this);
+		setBaudrate(baudrate);
+
+		_sbg_interface.handle		= this;
+		_sbg_interface.type			= SBG_IF_TYPE_SERIAL;
+		_sbg_interface.pReadFunc	= onReadCallback;
+
+		error_code = sbgEComInit(&_com_handle, &_sbg_interface);
 
 		if (error_code == SBG_NO_ERROR)
 		{
-			error_code = sbgEComInit(&_com_handle, &_sbg_interface);
+			sbgEComSetReceiveLogCallback(&_com_handle, onLogReceivedCallback, this);
 
-			if (error_code == SBG_NO_ERROR)
-			{
-				sbgEComSetReceiveLogCallback(&_com_handle, onLogReceivedCallback, this);
-
-				result = 0;
-			}
-			else
-			{
-				PX4_ERR("couldn't init sbgECom");
-			}
+			result = 0;
 		}
 		else
 		{
-			PX4_ERR("couldn't init interface");
+			PX4_ERR("couldn't init sbgECom");
 		}
 	}
 	else
@@ -349,69 +108,29 @@ int GPSDriver::receive(unsigned timeout)
 	return result;
 }
 
-void GPSDriver::onRead(void *p_buffer, size_t bytes_received)
+SbgErrorCode GPSDriver::onReadCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read)
 {
-	size_t								 bytes_remaining;
-	char								*p_head;
-
-	bytes_remaining = bytes_received;
-
-	p_head = (char *)p_buffer;
-
-	while (bytes_remaining != 0)
-	{
-		bool							 published;
-		size_t							 bytes_available;
-
-		bytes_available = sizeof(_bin.data) - _bin.bytes_read;
-
-		if (bytes_remaining <= bytes_available)
-		{
-			memcpy(&_bin.data[_bin.bytes_read], p_head, bytes_remaining);
-
-			_bin.bytes_read	+= bytes_remaining;
-
-			p_head = &p_head[bytes_remaining];
-
-			bytes_remaining = 0;
-		}
-		else
-		{
-			memcpy(&_bin.data[_bin.bytes_read], p_head, bytes_available);
-
-			p_head = &p_head[bytes_available];
-
-			bytes_remaining -= bytes_available;
-
-			_bin.timestamp = hrt_absolute_time();
-
-			_bin.bytes_read	+= bytes_available;
-
-			published = _sbg_bin_pub.publish(_bin);
-
-			if (published)
-			{
-				_bin.bytes_read = 0;
-			}
-			else
-			{
-				PX4_ERR("unable to publish sbg bin data");
-			}
-		}
-	}
-}
-
-SbgErrorCode GPSDriver::onReadCallback(void *p_buffer, size_t read_bytes, void *p_user_arg)
-{
+	SbgErrorCode					 error_code;
 	GPSDriver						*p_sbg_driver;
+	int								 result;
 
-	assert(p_user_arg);
+	assert(p_interface);
 
-	p_sbg_driver = (GPSDriver *)p_user_arg;
+	p_sbg_driver = (GPSDriver *)p_interface->handle;
 
-	p_sbg_driver->onRead(p_buffer, read_bytes);
+	result = p_sbg_driver->read((uint8_t *)p_buffer, bytes_to_read, 0);
 
-	return SBG_NO_ERROR;
+	if (result >= 0)
+	{
+		*p_read_bytes = result;
+		 error_code = SBG_NO_ERROR;
+	}
+	else
+	{
+		error_code = SBG_NOT_READY;
+	}
+
+	return error_code;
 }
 
 void GPSDriver::onLogReceived(SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData &ref_sbg_data, uint64_t system_timestamp)

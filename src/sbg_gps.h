@@ -3,7 +3,6 @@
 // uORB headers
 #include <uORB/uORB.h>
 #include <uORB/Publication.hpp>
-#include <uORB/topics/sbg_bin.h>
 
 // sbgCommonLib headers
 #include <sbgECom/src/sbgEComLib.h>
@@ -22,7 +21,7 @@ namespace px4
 		class GPSDriver : public GPSBaseStationSupport
 		{
 		public:
-			GPSDriver(GPSCallbackPtr callback, void* callback_user, struct sensor_gps_s *gps_position, float heading_offset, int serial_id);
+			GPSDriver(GPSCallbackPtr callback, void* callback_user, struct sensor_gps_s *gps_position, float heading_offset);
 			~GPSDriver(void);
 
 			int configure(unsigned &baud, OutputMode output_mode) override;
@@ -32,7 +31,7 @@ namespace px4
 			int reset(GPSRestartType restart_type) override;
 
 		private:
-			static SbgErrorCode onReadCallback(void *p_buffer, size_t read_bytes, void *user_arg);
+			static SbgErrorCode onReadCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read);
 			void onRead(void *p_buffer, size_t bytes_received);
 
 			static SbgErrorCode onLogReceivedCallback(SbgEComHandle *p_handle, SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData *p_log_data, void *p_user_arg);
@@ -48,7 +47,6 @@ namespace px4
 			struct sensor_gps_s					*p_gps_position;
 
 			float								 _heading_offset;
-			int									 _serial_id;
 
 			SbgInterface						 _sbg_interface;
 			SbgEComHandle						 _com_handle;
@@ -57,9 +55,6 @@ namespace px4
 
 			bool								 _pos_received;
 			bool								 _vel_received;
-
-			sbg_bin_s							 _bin;
-			uORB::Publication<sbg_bin_s>		 _sbg_bin_pub{ORB_ID(sbg_bin)};
 		};
 	}
 }
