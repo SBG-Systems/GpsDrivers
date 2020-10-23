@@ -1,3 +1,42 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+/**
+ * @file sbg_gps.cpp
+ *
+ * @author Brice Saussay <brice.saussay@sbg-systems.com>
+ */
+
 // Standard headers
 #include <math.h>
 #include <poll.h>
@@ -42,26 +81,29 @@ int GPSDriver::configure(unsigned &baudrate, OutputMode output_mode)
 
 		setBaudrate(baudrate);
 
+		// Initialise the interface
 		_sbg_interface.handle		= this;
 		_sbg_interface.type			= SBG_IF_TYPE_SERIAL;
-		_sbg_interface.pReadFunc	= onReadCallback;
+		_sbg_interface.pReadFunc	= readCallback;
 
+		// Initialise the sbgECom handler
 		error_code = sbgEComInit(&_com_handle, &_sbg_interface);
 
 		if (error_code == SBG_NO_ERROR)
 		{
+			// Attach the callback that handle received log
 			sbgEComSetReceiveLogCallback(&_com_handle, onLogReceivedCallback, this);
 
 			result = 0;
 		}
 		else
 		{
-			PX4_ERR("couldn't init sbgECom");
+			SBG_LOG_DEBUG("couldn't init sbgECom");
 		}
 	}
 	else
 	{
-		PX4_ERR("unsupported Output Mode %i", (int)output_mode);
+		SBG_LOG_DEBUG("unsupported Output Mode %i", (int)output_mode);
 	}
 
 	return result;
@@ -78,6 +120,7 @@ int GPSDriver::receive(unsigned timeout)
 	{
 		sbgEComHandleOneLog(&_com_handle);
 
+		// Check if GPS position and GPS velocity logs have been received
 		if (_pos_received && _vel_received)
 		{
 			_rate_count_vel++;
@@ -90,14 +133,15 @@ int GPSDriver::receive(unsigned timeout)
 
 			break;
 		}
-		else if (isTimeout(start_time, timeout))
+		// Check if a timeout ocurred
+		else if (isTimeout(start_time / 1000, timeout))
 		{
 			result = -1;
 
 			_pos_received = false;
 			_vel_received = false;
 
-			PX4_ERR("timeout");
+			SBG_LOG_DEBUG("timeout");
 			break;
 		}
 
@@ -107,7 +151,7 @@ int GPSDriver::receive(unsigned timeout)
 	return result;
 }
 
-SbgErrorCode GPSDriver::onReadCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read)
+SbgErrorCode GPSDriver::readCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read)
 {
 	SbgErrorCode					 error_code;
 	GPSDriver						*p_sbg_driver;
@@ -180,7 +224,7 @@ bool GPSDriver::isTimeout(uint64_t start_time, uint64_t timeout)
 {
 	bool								 is_timeout;
 
-	if ((start_time + timeout * 1000) < gps_absolute_time())
+	if ((start_time + timeout) < gps_absolute_time())
 	{
 		is_timeout = true;
 	}
@@ -192,7 +236,7 @@ bool GPSDriver::isTimeout(uint64_t start_time, uint64_t timeout)
 	return is_timeout;
 }
 
-void GPSDriver::processGpsVel(const SbgLogGpsVel *p_vel)
+void GPSDriver::processGpsVel(const SbgLogGpsVel *p_gps_vel)
 {
 	p_gps_position->vel_m_s = sqrtf(powf(p_vel->velocity[0], 2) + powf(p_vel->velocity[1], 2));
 	p_gps_position->vel_n_m_s = p_vel->velocity[0];
