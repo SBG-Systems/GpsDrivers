@@ -121,6 +121,7 @@ int GPSDriver::receive(unsigned timeout)
 
 	for (;;)
 	{
+		// Handle incoming log
 		sbgEComHandleOneLog(&_com_handle);
 
 		// Check if GPS position and GPS velocity logs have been received
@@ -164,6 +165,7 @@ SbgErrorCode GPSDriver::readCallback(SbgInterface *p_interface, void *p_buffer, 
 
 	p_sbg_driver = (GPSDriver *)p_interface->handle;
 
+	// Call GPS helper read method
 	result = p_sbg_driver->read((uint8_t *)p_buffer, bytes_to_read, 0);
 
 	if (result >= 0)
