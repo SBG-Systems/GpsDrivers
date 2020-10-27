@@ -134,7 +134,7 @@ int GPSDriver::receive(unsigned timeout)
 			break;
 		}
 		// Check if a timeout ocurred
-		else if (isTimeout(start_time / 1000, timeout))
+		else if (isTimeout(start_time, timeout * 1000))
 		{
 			result = -1;
 

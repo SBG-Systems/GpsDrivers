@@ -128,8 +128,8 @@ namespace px4
 
 			/**
 			 * Check if the driver is timeout
-			 * @param start_time in ms
-			 * @param timeout in ms
+			 * @param start_time in microseconds
+			 * @param timeout in microseconds
 			 */
 			bool isTimeout(uint64_t start_time, uint64_t timeout);
 
