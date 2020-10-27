@@ -54,96 +54,96 @@
 
 namespace px4
 {
-	namespace sbg
+namespace sbg
+{
+	class GPSDriver : public GPSBaseStationSupport
 	{
+	public:
+		GPSDriver(GPSCallbackPtr callback, void* callback_user, struct sensor_gps_s *gps_position, float heading_offset);
+		~GPSDriver(void);
 
-		class GPSDriver : public GPSBaseStationSupport
-		{
-		public:
-			GPSDriver(GPSCallbackPtr callback, void* callback_user, struct sensor_gps_s *gps_position, float heading_offset);
-			~GPSDriver(void);
+		int configure(unsigned &baud, OutputMode output_mode) override;
 
-			int configure(unsigned &baud, OutputMode output_mode) override;
+		int receive(unsigned int timeout) override;
 
-			int receive(unsigned int timeout) override;
+		int reset(GPSRestartType restart_type) override;
 
-			int reset(GPSRestartType restart_type) override;
+	private:
+		/**
+		 * Read callback
+		 * @param p_interface pointer on an initialized interface
+		 * @param p_buffer pointer on an allocated buffer that can hold at least bytesToRead bytes of data
+		 * @param p_read_bytes returns the number of bytes actually read (can be zero and up to bytesToRead)
+		 * @param p_read_bytes maximum number of bytes to try to read on the interface
+		 * @return: SBG_NO_ERROR if zero or some bytes have been read successfully
+		 */
+		static SbgErrorCode readCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read);
 
-		private:
-			/**
-			 * Read callback
-			 * @param p_interface pointer on an initialized interface
-			 * @param p_buffer pointer on an allocated buffer that can hold at least bytesToRead bytes of data
-			 * @param p_read_bytes returns the number of bytes actually read (can be zero and up to bytesToRead)
-			 * @param p_read_bytes maximum number of bytes to try to read on the interface
-			 * @return: SBG_NO_ERROR if zero or some bytes have been read successfully
-			 */
-			static SbgErrorCode readCallback(SbgInterface *p_interface, void *p_buffer, size_t *p_read_bytes, size_t bytes_to_read);
+		/**
+		 * Callback called each time a new log is received
+		 * @param p_handle Valid handle on the sbgECom instance that has called this callback
+		 * @param msg_class Class of the message we have received
+		 * @param msg Message ID of the log received
+		 * @param p_log_data Contains the received log data as an union
+		 * @param p_user_arg Optional user supplied argument
+		 * @return: SBG_NO_ERROR if the received log has been used successfully
+		 */
+		static SbgErrorCode onLogReceivedCallback(SbgEComHandle *p_handle, SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData *p_log_data, void *p_user_arg);
 
-			/**
-			 * Callback called each time a new log is received
-			 * @param p_handle Valid handle on the sbgECom instance that has called this callback.
-			 * @param msg_class Class of the message we have received
-			 * @param msg Message ID of the log received.
-			 * @param p_log_data Contains the received log data as an union.
-			 * @param p_user_arg Optional user supplied argument.
-			 * @return: SBG_NO_ERROR if the received log has been used successfully.
-			 */
-			static SbgErrorCode onLogReceivedCallback(SbgEComHandle *p_handle, SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData *p_log_data, void *p_user_arg);
+		/**
+		 * Callback called each time a new log is received
+		 * @param msgClass Class of the message we have received
+		 * @param msg Message ID of the log received
+		 * @param p_log_data Contains the received log data as an union
+		 * @param p_user_arg Optional user supplied argument
+		 * @return: SBG_NO_ERROR if the received log has been used successfully
+		 */
+		void onLogReceived(SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData &ref_sbg_data, uint64_t system_timestamp);
 
-			/**
-			 * Callback called each time a new log is received
-			 * @param msgClass Class of the message we have received
-			 * @param msg Message ID of the log received.
-			 * @param p_log_data Contains the received log data as an union.
-			 * @param p_user_arg Optional user supplied argument.
-			 * @return: SBG_NO_ERROR if the received log has been used successfully.
-			 */
-			void onLogReceived(SbgEComClass msg_class, SbgEComMsgId msg, const SbgBinaryLogData &ref_sbg_data, uint64_t system_timestamp);
+		/**
+		 * Process GPS velocity log
+		 * @param p_gps_vel pointer on a structure that contains the GPS velocity log to process
+		 */
+		void processGpsVel(const SbgLogGpsVel *p_gps_vel);
 
-			/**
-			 * Process GPS velocity log
-			 * @param p_gps_vel pointer on a structure that contains the GPS velocity log to process
-			 */
-			void processGpsVel(const SbgLogGpsVel *p_gps_vel);
+		/**
+		 * Process GPS position log
+		 * @param p_pos pointer on a structure that contains the GPS position log to process
+		 * @param system_timestamp timestamp from the system start, in microseconds
+		 */
+		void processGpsPos(const SbgLogGpsPos *p_gps_pos, uint64_t system_timestamp);
 
-			/**
-			 * Process GPS position log
-			 * @param p_pos pointer on a structure that contains the GPS position log to process
-			 * @param system_timestamp timestamp from the system start, in microseconds
-			 */
-			void processGpsPos(const SbgLogGpsPos *p_gps_pos, uint64_t system_timestamp);
+		/**
+		 * Process GPS heading log
+		 * @param p_gps_hdt pointer on a structure that contains the GPS heading log to process
+		 */
+		void processGpsHdt(const SbgLogGpsHdt *p_gps_hdt);
 
-			/**
-			 * Process GPS heading log
-			 * @param p_gps_hdt pointer on a structure that contains the GPS heading log to process
-			 */
-			void processGpsHdt(const SbgLogGpsHdt *p_gps_hdt);
+		/**
+		 * Process UTC data log
+		 * @param p_vel pointer on a structure that contains the UTC data log to process
+		 */
+		void processUtc(const SbgLogUtcData *p_utc);
 
-			/**
-			 * Process UTC data log
-			 * @param p_vel pointer on a structure that contains the UTC data log to process
-			 */
-			void processUtc(const SbgLogUtcData *p_utc);
+		/**
+		 * Check if the driver is timeout
+		 * @param start_time in microseconds
+		 * @param timeout in microseconds
+		 * @return: True if timeout
+		 */
+		bool isTimeout(uint64_t start_time, uint64_t timeout);
 
-			/**
-			 * Check if the driver is timeout
-			 * @param start_time in microseconds
-			 * @param timeout in microseconds
-			 */
-			bool isTimeout(uint64_t start_time, uint64_t timeout);
+		struct sensor_gps_s					*p_gps_position;
 
-			struct sensor_gps_s					*p_gps_position;
+		float								 _heading_offset;
 
-			float								 _heading_offset;
+		SbgInterface						 _sbg_interface;
+		SbgEComHandle						 _com_handle;
 
-			SbgInterface						 _sbg_interface;
-			SbgEComHandle						 _com_handle;
+		uint64_t							 _utc_timestamp;
 
-			uint64_t							 _utc_timestamp;
-
-			bool								 _pos_received;
-			bool								 _vel_received;
-		};
-	}
+		bool								 _pos_received;
+		bool								 _vel_received;
+	};
+}
 }
