@@ -238,18 +238,18 @@ bool GPSDriver::isTimeout(uint64_t start_time, uint64_t timeout)
 
 void GPSDriver::processGpsVel(const SbgLogGpsVel *p_gps_vel)
 {
-	p_gps_position->vel_m_s = sqrtf(powf(p_vel->velocity[0], 2) + powf(p_vel->velocity[1], 2));
-	p_gps_position->vel_n_m_s = p_vel->velocity[0];
-	p_gps_position->vel_e_m_s = p_vel->velocity[1];
-	p_gps_position->vel_d_m_s = p_vel->velocity[2];
+	p_gps_position->vel_m_s = sqrtf(powf(p_gps_vel->velocity[0], 2) + powf(p_gps_vel->velocity[1], 2));
+	p_gps_position->vel_n_m_s = p_gps_vel->velocity[0];
+	p_gps_position->vel_e_m_s = p_gps_vel->velocity[1];
+	p_gps_position->vel_d_m_s = p_gps_vel->velocity[2];
 
-	p_gps_position->s_variance_m_s = sqrtf(powf(p_vel->velocityAcc[0], 2) + powf(p_vel->velocityAcc[1], 2) + powf(p_vel->velocityAcc[2], 2));
+	p_gps_position->s_variance_m_s = sqrtf(powf(p_gps_vel->velocityAcc[0], 2) + powf(p_gps_vel->velocityAcc[1], 2) + powf(p_gps_vel->velocityAcc[2], 2));
 
 	p_gps_position->vel_ned_valid = true;
 
-	p_gps_position->cog_rad = sbgDegToRadF(p_vel->course);
+	p_gps_position->cog_rad = sbgDegToRadF(p_gps_vel->course);
 
-	p_gps_position->c_variance_rad = sbgDegToRadF(p_vel->courseAcc);
+	p_gps_position->c_variance_rad = sbgDegToRadF(p_gps_vel->courseAcc);
 
 	_vel_received = true;
 }
