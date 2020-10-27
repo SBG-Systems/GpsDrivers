@@ -360,5 +360,5 @@ void GPSDriver::processUtc(const SbgLogUtcData *p_utc)
 		p_gps_position->time_utc_usec = 0;
 	}
 }
-}
-}
+} // namespace sbg
+} // namespace px4
