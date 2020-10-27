@@ -349,18 +349,14 @@ void GPSDriver::processUtc(const SbgLogUtcData *p_utc)
 		}
 		else
 		{
-			PX4_DEBUG("unable to get epoch time in seconds");
 			p_gps_position->time_utc_usec = 0;
 		}
 #else
-
-		PX4_DEBUG("mktime function not define");
 		p_gps_position->time_utc_usec = 0;
 #endif
 	}
 	else
 	{
-		PX4_DEBUG("UTC clock not ready");
 		p_gps_position->time_utc_usec = 0;
 	}
 }
