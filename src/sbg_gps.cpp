@@ -106,7 +106,7 @@ int GPSDriver::configure(unsigned &baudrate, OutputMode output_mode)
 	}
 	else
 	{
-		SBG_LOG_DEBUG("unsupported Output Mode %i", (int)output_mode);
+		SBG_LOG_ERROR(SBG_INVALID_PARAMETER, "unsupported Output Mode %i", (int)output_mode);
 	}
 
 	return result;
@@ -144,7 +144,7 @@ int GPSDriver::receive(unsigned timeout)
 			_pos_received = false;
 			_vel_received = false;
 
-			SBG_LOG_DEBUG("timeout");
+			SBG_LOG_ERROR(SBG_TIME_OUT, "timeout");
 			break;
 		}
 
