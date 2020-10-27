@@ -79,26 +79,29 @@ int GPSDriver::configure(unsigned &baudrate, OutputMode output_mode)
 	{
 		SbgErrorCode					 error_code;
 
-		setBaudrate(baudrate);
+		result = setBaudrate(baudrate);
 
-		// Initialise the interface
-		_sbg_interface.handle		= this;
-		_sbg_interface.type			= SBG_IF_TYPE_SERIAL;
-		_sbg_interface.pReadFunc	= readCallback;
-
-		// Initialise the sbgECom handler
-		error_code = sbgEComInit(&_com_handle, &_sbg_interface);
-
-		if (error_code == SBG_NO_ERROR)
+		if (result == 0)
 		{
-			// Attach the callback that handle received log
-			sbgEComSetReceiveLogCallback(&_com_handle, onLogReceivedCallback, this);
+			// Initialise the interface
+			_sbg_interface.handle		= this;
+			_sbg_interface.type			= SBG_IF_TYPE_SERIAL;
+			_sbg_interface.pReadFunc	= readCallback;
 
-			result = 0;
-		}
-		else
-		{
-			SBG_LOG_DEBUG("couldn't init sbgECom");
+			// Initialise the sbgECom handler
+			error_code = sbgEComInit(&_com_handle, &_sbg_interface);
+
+			if (error_code == SBG_NO_ERROR)
+			{
+				// Attach the callback that handle received log
+				sbgEComSetReceiveLogCallback(&_com_handle, onLogReceivedCallback, this);
+
+				result = 0;
+			}
+			else
+			{
+				SBG_LOG_DEBUG("couldn't init sbgECom");
+			}
 		}
 	}
 	else
